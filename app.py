@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -149,11 +150,14 @@ def main():
                     # Process data in batches
                     all_predictions = []
                     progress_bar = st.progress(0)
+                    total_batches = (len(df) + BATCH_SIZE - 1) // BATCH_SIZE  # Ceiling division
                     
                     for i, batch_df in enumerate(process_data_in_batches(df)):
                         batch_predictions = st.session_state.model.predict(batch_df.values)
                         all_predictions.extend(batch_predictions)
-                        progress_bar.progress((i + 1) * BATCH_SIZE / len(df))
+                        # Calculate progress as a fraction between 0 and 1
+                        progress = min(1.0, (i + 1) / total_batches)
+                        progress_bar.progress(progress)
                     
                     predictions_prob = np.array(all_predictions)
                     predictions = (predictions_prob > threshold).astype(int)
