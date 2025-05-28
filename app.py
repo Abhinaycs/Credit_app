@@ -65,6 +65,67 @@ def plot_confusion_matrix(y_true, y_pred):
     plt.xlabel('Predicted Label')
     return plt
 
+def process_and_display_results(df, y_true, threshold):
+    """Process data and display results"""
+    # Process data in batches
+    all_predictions = []
+    progress_bar = st.progress(0)
+    total_batches = (len(df) + BATCH_SIZE - 1) // BATCH_SIZE
+    
+    for i, batch_df in enumerate(process_data_in_batches(df)):
+        batch_predictions = st.session_state.model.predict(batch_df.values)
+        all_predictions.extend(batch_predictions)
+        progress = min(1.0, (i + 1) / total_batches)
+        progress_bar.progress(progress)
+    
+    predictions_prob = np.array(all_predictions)
+    predictions = (predictions_prob > threshold).astype(int)
+    st.session_state.predictions = predictions
+    
+    # Create results dataframe
+    results_df = df.copy()
+    results_df['Fraud_Probability'] = predictions_prob
+    results_df['Fraud_Prediction'] = predictions
+    
+    # Display results in tabs
+    tab1, tab2, tab3 = st.tabs(["Results", "Evaluation", "Download"])
+    
+    with tab1:
+        st.subheader("Detection Results")
+        st.dataframe(results_df)
+        
+        # Add a pie chart of fraud vs non-fraud predictions
+        fraud_counts = results_df['Fraud_Prediction'].value_counts()
+        fig, ax = plt.subplots(figsize=(6, 6))
+        ax.pie(fraud_counts, labels=['Normal', 'Fraud'], autopct='%1.1f%%')
+        ax.set_title('Distribution of Predictions')
+        st.pyplot(fig)
+    
+    with tab2:
+        if y_true is not None:
+            st.subheader("Model Evaluation")
+            
+            # Plot confusion matrix
+            fig = plot_confusion_matrix(y_true, predictions)
+            st.pyplot(fig)
+            
+            # Display classification report
+            report = classification_report(y_true, predictions, output_dict=True)
+            report_df = pd.DataFrame(report).transpose()
+            st.dataframe(report_df)
+        else:
+            st.info("No ground truth labels available for evaluation")
+    
+    with tab3:
+        # Download results
+        csv = results_df.to_csv(index=False)
+        st.download_button(
+            label="Download Results",
+            data=csv,
+            file_name="fraud_detection_results.csv",
+            mime="text/csv"
+        )
+
 def main():
     # Sidebar with model information
     with st.sidebar:
@@ -144,68 +205,9 @@ def main():
             with col2:
                 st.write("Real-time Fraud Detection Visualization")
             
-            # Make predictions
-            if st.button("Detect Fraud"):
-                with st.spinner("Processing..."):
-                    # Process data in batches
-                    all_predictions = []
-                    progress_bar = st.progress(0)
-                    total_batches = (len(df) + BATCH_SIZE - 1) // BATCH_SIZE  # Ceiling division
-                    
-                    for i, batch_df in enumerate(process_data_in_batches(df)):
-                        batch_predictions = st.session_state.model.predict(batch_df.values)
-                        all_predictions.extend(batch_predictions)
-                        # Calculate progress as a fraction between 0 and 1
-                        progress = min(1.0, (i + 1) / total_batches)
-                        progress_bar.progress(progress)
-                    
-                    predictions_prob = np.array(all_predictions)
-                    predictions = (predictions_prob > threshold).astype(int)
-                    st.session_state.predictions = predictions
-                    
-                    # Create results dataframe
-                    results_df = df.copy()
-                    results_df['Fraud_Probability'] = predictions_prob
-                    results_df['Fraud_Prediction'] = predictions
-                    
-                    # Display results in tabs
-                    tab1, tab2, tab3 = st.tabs(["Results", "Evaluation", "Download"])
-                    
-                    with tab1:
-                        st.subheader("Detection Results")
-                        st.dataframe(results_df)
-                        
-                        # Add a pie chart of fraud vs non-fraud predictions
-                        fraud_counts = results_df['Fraud_Prediction'].value_counts()
-                        fig, ax = plt.subplots(figsize=(6, 6))
-                        ax.pie(fraud_counts, labels=['Normal', 'Fraud'], autopct='%1.1f%%')
-                        ax.set_title('Distribution of Predictions')
-                        st.pyplot(fig)
-                    
-                    with tab2:
-                        if y_true is not None:
-                            st.subheader("Model Evaluation")
-                            
-                            # Plot confusion matrix
-                            fig = plot_confusion_matrix(y_true, predictions)
-                            st.pyplot(fig)
-                            
-                            # Display classification report
-                            report = classification_report(y_true, predictions, output_dict=True)
-                            report_df = pd.DataFrame(report).transpose()
-                            st.dataframe(report_df)
-                        else:
-                            st.info("No ground truth labels available for evaluation")
-                    
-                    with tab3:
-                        # Download results
-                        csv = results_df.to_csv(index=False)
-                        st.download_button(
-                            label="Download Results",
-                            data=csv,
-                            file_name="fraud_detection_results.csv",
-                            mime="text/csv"
-                        )
+            # Process and display results automatically
+            with st.spinner("Processing predictions..."):
+                process_and_display_results(df, y_true, threshold)
         
         except Exception as e:
             st.error(f"Error processing file: {str(e)}")
