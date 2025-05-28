@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -7,6 +6,15 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import confusion_matrix, classification_report
 import os
+
+# Initialize session state at the very beginning
+if not st.session_state:
+    st.session_state.update({
+        'model': None,
+        'data': None,
+        'predictions': None,
+        'initialized': True
+    })
 
 # Set page config
 st.set_page_config(
@@ -17,14 +25,6 @@ st.set_page_config(
 
 # Constants
 BATCH_SIZE = 1000  # Define batch size as a constant
-
-# Initialize session state
-if 'model' not in st.session_state:
-    st.session_state.model = None
-if 'data' not in st.session_state:
-    st.session_state.data = None
-if 'predictions' not in st.session_state:
-    st.session_state.predictions = None
 
 @st.cache_resource
 def load_model():
