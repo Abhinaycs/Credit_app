@@ -14,6 +14,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Constants
+BATCH_SIZE = 1000  # Define batch size as a constant
+
 # Initialize session state
 if 'model' not in st.session_state:
     st.session_state.model = None
@@ -46,7 +49,7 @@ def load_model():
         st.error(f"Error loading model: {str(e)}")
         return None
 
-def process_data_in_batches(df, batch_size=1000):
+def process_data_in_batches(df, batch_size=BATCH_SIZE):
     """Process data in batches to prevent memory issues"""
     total_rows = len(df)
     for i in range(0, total_rows, batch_size):
@@ -150,7 +153,7 @@ def main():
                     for i, batch_df in enumerate(process_data_in_batches(df)):
                         batch_predictions = st.session_state.model.predict(batch_df.values)
                         all_predictions.extend(batch_predictions)
-                        progress_bar.progress((i + 1) * batch_size / len(df))
+                        progress_bar.progress((i + 1) * BATCH_SIZE / len(df))
                     
                     predictions_prob = np.array(all_predictions)
                     predictions = (predictions_prob > threshold).astype(int)
